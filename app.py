@@ -182,7 +182,7 @@ while True:
             print("🗑️ Tarefa removida com sucesso!")
 
     elif opcao == "6":
-        print("👋 Até mais!")
+        print("👋 Até a próxima!")
         break
     else:
         print("❌ Opção inválida.")
