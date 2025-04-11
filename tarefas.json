@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "tarefa": "caminhar",
+        "prazo": "12/04/2025",
+        "status": "concluido"
+    },
+    {
+        "id": 2,
+        "tarefa": "ioga",
+        "prazo": "12/04/2025",
+        "status": "concluido"
+    },
+    {
+        "id": 3,
+        "tarefa": "faxina",
+        "prazo": "12/04/2025",
+        "status": "pendente"
+    },
+    {
+        "id": 4,
+        "tarefa": "estudar",
+        "prazo": "12/04/2025",
+        "status": "concluído"
+    }
+]
