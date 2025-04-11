@@ -1,11 +1,21 @@
-import os
-from datetime import datetime
-import json
-import requests    
+# Importa bibliotecas necessárias
+import os  # Manipulação de arquivos e diretórios
+from datetime import datetime  # Manipulação de datas
+import json  # Leitura e escrita de arquivos JSON
+import requests  # Requisições HTTP para carregar dados externos
+import unicodedata  # Para remover acentos de strings
 
+# Define o nome do arquivo local para armazenar tarefas
 arquivo = "tarefas.json"
+
+# URL do arquivo de tarefas hospedado no GitHub (atuando como uma API)
 api_url = "https://raw.githubusercontent.com/sndyduarte/jsonapi/refs/heads/main/tarefas.json"
 
+# Função auxiliar para normalizar texto (remove acentos, ignora maiúsculas/minúsculas)
+def normalizar(texto):
+    return unicodedata.normalize("NFKD", texto).encode("ASCII", "ignore").decode("utf-8").lower()
+
+# Função que exibe o menu principal com as opções
 def menu():
     print("----  Menu de Tarefas  ----")
     print("1. Listar tarefas")
@@ -15,55 +25,57 @@ def menu():
     print("5. Remover tarefa")
     print("6. Sair")
 
+# Carrega tarefas do arquivo local ou cria um novo arquivo vazio se não existir
 def carregar_tarefas():
     if not os.path.exists(arquivo):
         with open(arquivo, "w", encoding="utf-8") as f:
-            json.dump([], f, indent=4, ensure_ascii=False)
-   
+            json.dump([], f, indent=4, ensure_ascii=False)  # Cria arquivo com lista vazia
+
     with open(arquivo, "r", encoding="utf-8") as f:
-        return json.load(f)
+        return json.load(f)  # Retorna lista de tarefas carregada
+
+# Salva a lista de tarefas no arquivo JSON
 def salvar_tarefas(tarefas):
     with open(arquivo, "w", encoding="utf-8") as f:
         json.dump(tarefas, f, indent=4, ensure_ascii=False)
 
+# Carrega tarefas da API (arquivo remoto) e adiciona à lista local, evitando duplicatas
 def carregar_api(url):
     try:
-        resposta = requests.get(url)
-        resposta.raise_for_status()
-        tarefas_api = resposta.json()
+        resposta = requests.get(url)  # Faz a requisição HTTP
+        resposta.raise_for_status()  # Lança erro se status != 200
+        tarefas_api = resposta.json()  # Converte resposta em lista de tarefas
 
-        # Carrega tarefas locais
-        tarefas_local = carregar_tarefas()
+        tarefas_local = carregar_tarefas()  # Tarefas locais atuais
 
-        # Conjunto com (nome, prazo) para detectar duplicatas
-        tarefas_existentes = {(t["tarefa"], t["prazo"]) for t in tarefas_local}
+        # Detecta duplicatas com base em (tarefa, prazo), ignorando maiúsculas/minúsculas e acentos
+        tarefas_existentes = {
+            (normalizar(t["tarefa"]), t["prazo"]) for t in tarefas_local
+        }
 
-        # IDs já usados
+        # Coleta IDs existentes
         ids_existentes = {t["id"] for t in tarefas_local}
-        proximo_id = max(ids_existentes, default=0) + 1
+        proximo_id = max(ids_existentes, default=0) + 1  # Define novo ID
 
-        novas_tarefas = []
+        novas_tarefas = []  # Lista para armazenar tarefas novas
 
         for tarefa in tarefas_api:
             nome = tarefa.get("tarefa")
             prazo = tarefa.get("prazo")
             status = tarefa.get("status", "pendente")
 
-            # Verifica duplicidade por nome e prazo
-            if (nome, prazo) in tarefas_existentes:
+            if (normalizar(nome), prazo) in tarefas_existentes:
                 print(f"⚠️ Tarefa duplicada ignorada: {nome} - {prazo}")
                 continue
 
-            # Garante ID único
             if "id" not in tarefa or tarefa["id"] in ids_existentes:
                 tarefa["id"] = proximo_id
                 proximo_id += 1
 
-            # Garante que tenha status válido
             if status not in ["pendente", "em andamento", "concluido"]:
                 tarefa["status"] = "pendente"
 
-            tarefas_existentes.add((nome, prazo))
+            tarefas_existentes.add((normalizar(nome), prazo))
             tarefas_local.append(tarefa)
             novas_tarefas.append(tarefa)
 
@@ -76,18 +88,18 @@ def carregar_api(url):
     except ValueError:
         print("❌ Resposta da API não está em formato JSON válido.")
 
+# Loop principal do programa
 while True:
     menu()
     opcao = input("\nEscolha uma opção: ")
-
     tarefas = carregar_tarefas()
 
     if opcao == "1":
         if not tarefas:
             print("\n🚫 Nenhuma tarefa cadastrada.")
         else:
-            print("\n✅ Tarefas:")
-        
+            print("\nTarefas:")
+
         status_emojis = {
             "pendente": "⏳",
             "em andamento": "🛠️",
@@ -106,6 +118,10 @@ while True:
             datetime.strptime(prazo, "%d/%m/%Y")
         except ValueError:
             print("❌ Data inválida!")
+            continue
+
+        if any(normalizar(t["tarefa"]) == normalizar(nome) and t["prazo"] == prazo for t in tarefas):
+            print("⚠️ Tarefa com mesmo nome e prazo já existente! Informe uma tarefa nova.")
             continue
 
         print("\n🔄 Escolha o status inicial da tarefa:")
@@ -157,7 +173,7 @@ while True:
                     t["status"] = "concluido"
                 else:
                     print("❌ Opção inválida.")
-                    break  # sai do for sem salvar
+                    break
 
                 encontrou = True
                 break
@@ -171,6 +187,7 @@ while True:
     elif opcao == "4":
         carregar_api(api_url)
         tarefas = carregar_tarefas()
+
     elif opcao == "5":
         id_remover = int(input("🗑️ ID da tarefa a remover: "))
         tarefas_novas = [t for t in tarefas if t["id"] != id_remover]
@@ -184,5 +201,6 @@ while True:
     elif opcao == "6":
         print("👋 Até a próxima!")
         break
+
     else:
         print("❌ Opção inválida.")
